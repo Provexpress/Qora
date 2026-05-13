@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canUseClient, canUseCommercialRecord, isAdmin } from "@/lib/scopes";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const currentUser = await requireModuleAccess("leads");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const lead = await prisma.lead.findUnique({
     where: { id },
     include: {
@@ -89,7 +91,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <p className="text-xs font-semibold uppercase text-primary">Vista 360 del cliente</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-normal">{lead.fullName}</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                Historial comercial del contacto: datos base, oportunidades, cotizaciones, actividades, reservas y operación conectada.
+                Historial comercial del contacto: datos base, oportunidades, cotizaciones, actividades, {vocabulary.reservationPlural} y {vocabulary.postSaleLabel.toLowerCase()} conectada.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <Info icon={<Mail className="h-4 w-4" />} label="Correo" value={lead.email} />
@@ -100,10 +102,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <Card className="p-5">
               <p className="font-semibold">Resumen del negocio</p>
               <div className="mt-4 space-y-3 text-sm">
-                <Row label="Tipo de evento" value={lead.eventType} />
-                <Row label="Personas" value={String(lead.peopleCount)} />
+                <Row label={vocabulary.needLabel} value={lead.eventType} />
+                <Row label={vocabulary.quantityLabel} value={String(lead.peopleCount)} />
                 <Row label="Origen" value={lead.source} />
-                <Row label="Fecha tentativa" value={lead.estimatedDate ? format(lead.estimatedDate, "dd MMM yyyy", { locale: es }) : "Por definir"} />
+                <Row label={vocabulary.dateLabel} value={lead.estimatedDate ? format(lead.estimatedDate, "dd MMM yyyy", { locale: es }) : "Por definir"} />
               </div>
             </Card>
           </div>
@@ -190,13 +192,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </Card>
 
           <Card className="p-5">
-            <SectionTitle icon={<CalendarClock className="h-5 w-5" />} title="Reservas y agenda" helper="Bloqueos de espacio relacionados" />
+            <SectionTitle icon={<CalendarClock className="h-5 w-5" />} title={vocabulary.isEventTenant ? "Reservas y agenda" : "Agenda comercial"} helper={vocabulary.isEventTenant ? "Bloqueos de espacio relacionados" : "Seguimientos y reuniones relacionados"} />
             <div className="mt-4 space-y-3">
               {reservations.length === 0 ? <Empty text="Sin reservas registradas." /> : reservations.map((reservation) => (
                 <div key={reservation.id} className="rounded-lg border bg-slate-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold">{reservation.space?.name ?? "Espacio por definir"}</p>
+                      <p className="font-semibold">{reservation.space?.name ?? (vocabulary.isEventTenant ? "Espacio por definir" : "Modalidad por definir")}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {format(reservation.reservationDate, "dd MMM yyyy", { locale: es })} · {reservation.startTime} - {reservation.endTime}
                       </p>

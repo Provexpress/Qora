@@ -82,7 +82,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <ModuleHero
           eyebrow="Mesa de entrada comercial"
           title="Captura, califica y convierte interesados en oportunidades accionables."
-          description="Concentra información inicial del cliente, origen, tipo de evento, responsable y el salto natural hacia el pipeline comercial."
+          description={vocabulary.leadsDescription}
         />
 
         <div className="mb-6 grid gap-4 md:grid-cols-4">

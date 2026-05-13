@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { salesOpportunityScope } from "@/lib/scopes";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ const chefDone = ["Listo", "Entregado", "Finalizada"];
 export default async function OperationEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const currentUser = await requireModuleAccess("operacion");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const returnTo = `/operacion/${id}`;
   const [event, operators] = await Promise.all([
     prisma.opportunity.findFirst({
@@ -62,7 +64,7 @@ export default async function OperationEventPage({ params }: { params: Promise<{
           include: { items: { include: { serviceItem: true }, orderBy: { description: "asc" } } }
         },
         reservations: { include: { space: true }, orderBy: { reservationDate: "asc" } },
-        activities: { where: { type: "Operación" }, orderBy: { activityDate: "asc" }, include: { user: true } },
+        activities: { where: { type: { in: ["Operacion", "Operación", "OperaciÃ³n"] } }, orderBy: { activityDate: "asc" }, include: { user: true } },
         purchaseTasks: { orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] },
         scheduleItems: { orderBy: { order: "asc" } },
         cateringRequirements: { orderBy: [{ serviceTime: "asc" }, { createdAt: "asc" }] },
@@ -85,11 +87,11 @@ export default async function OperationEventPage({ params }: { params: Promise<{
   const canClose = purchaseProgress === 100 && scheduleProgress === 100 && event.purchaseTasks.length > 0 && event.scheduleItems.length > 0;
 
   return (
-    <AppShell title="Expediente operativo" module="operacion">
+    <AppShell title={vocabulary.isEventTenant ? "Expediente operativo" : "Expediente de postventa"} module="operacion">
       <PageTransition>
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <Button asChild variant="outline">
-            <Link href="/operacion"><ArrowLeft className="h-4 w-4" /> Eventos ganados</Link>
+            <Link href="/operacion"><ArrowLeft className="h-4 w-4" /> {vocabulary.isEventTenant ? "Eventos ganados" : "Proyectos ganados"}</Link>
           </Button>
           <div className="flex flex-wrap gap-2">
             <PrintButton />
@@ -104,17 +106,17 @@ export default async function OperationEventPage({ params }: { params: Promise<{
               <p className="text-xs font-semibold uppercase text-primary">{event.operationCode}</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-normal">{event.title}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                {event.lead.fullName} · {event.lead.eventType} · {event.lead.peopleCount} personas
+                {event.lead.fullName} · {event.lead.eventType}{vocabulary.isEventTenant ? ` · ${event.lead.peopleCount} personas` : ""}
               </p>
               <div className="mt-6 grid gap-3 md:grid-cols-4">
                 <Info label="Fecha" value={reservation ? format(reservation.reservationDate, "dd MMM yyyy", { locale: es }) : "Por definir"} icon={<CalendarClock className="h-4 w-4" />} />
                 <Info label="Horario" value={reservation ? `${reservation.startTime} - ${reservation.endTime}` : "Por definir"} icon={<Clock className="h-4 w-4" />} />
-                <Info label="Espacio" value={reservation?.space?.name ?? "Sin reserva"} icon={<MapPin className="h-4 w-4" />} />
+                <Info label={vocabulary.locationLabel} value={reservation?.space?.name ?? (vocabulary.isEventTenant ? "Sin reserva" : "Por definir")} icon={<MapPin className="h-4 w-4" />} />
                 <Info label="Valor" value={formatCurrency(Number(event.estimatedValue))} icon={<FileText className="h-4 w-4" />} />
               </div>
             </div>
             <Card className="p-5">
-              <p className="font-semibold">Estado operativo</p>
+              <p className="font-semibold">{vocabulary.isEventTenant ? "Estado operativo" : "Estado de postventa"}</p>
               <form action={updateOperationalStatus} className="mt-4">
                 <input type="hidden" name="opportunityId" value={event.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
@@ -132,23 +134,23 @@ export default async function OperationEventPage({ params }: { params: Promise<{
           </div>
         </section>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className={`mt-6 grid gap-4 md:grid-cols-2 ${vocabulary.isEventTenant ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
           <Kpi label="Checklist" value={`${taskReady}/${event.activities.length}`} />
           <Kpi label="Compras" value={`${purchasesReady}/${event.purchaseTasks.length}`} />
           <Kpi label="Cronograma" value={`${scheduleReady}/${event.scheduleItems.length}`} />
-          <Kpi label="Alimentos" value={`${chefReady}/${event.cateringRequirements.length}`} />
+          {vocabulary.isEventTenant && <Kpi label="Alimentos" value={`${chefReady}/${event.cateringRequirements.length}`} />}
         </div>
 
         <Card className="mt-6 p-5">
-          <SectionTitle icon={<MessageSquare className="h-5 w-5" />} title="Bitacora operativa" helper="Novedades internas del evento, visibles para el equipo" />
+          <SectionTitle icon={<MessageSquare className="h-5 w-5" />} title={vocabulary.isEventTenant ? "Bitacora operativa" : "Bitacora de postventa"} helper={vocabulary.isEventTenant ? "Novedades internas del evento, visibles para el equipo" : "Novedades internas del proyecto, visibles para el equipo"} />
           <form action={createOpportunityNote.bind(null, event.id)} className="mt-4 grid gap-3">
-            <Textarea name="content" placeholder="Registra novedad de montaje, proveedor, chef, cliente o bloqueo..." />
+            <Textarea name="content" placeholder={vocabulary.isEventTenant ? "Registra novedad de montaje, proveedor, chef, cliente o bloqueo..." : "Registra novedad de implementacion, cliente, responsable o bloqueo..."} />
             <div className="flex justify-end">
               <SubmitButton pendingText="Guardando...">Guardar nota</SubmitButton>
             </div>
           </form>
           <div className="mt-4 space-y-3">
-            {event.timelineNotes.length === 0 ? <Empty text="Aun no hay novedades internas en este evento." /> : event.timelineNotes.slice(0, 6).map((note) => (
+            {event.timelineNotes.length === 0 ? <Empty text={`Aun no hay novedades internas en este ${vocabulary.subjectSingular}.`} /> : event.timelineNotes.slice(0, 6).map((note) => (
               <div key={note.id} className="rounded-lg border bg-slate-50 p-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div>
@@ -163,7 +165,7 @@ export default async function OperationEventPage({ params }: { params: Promise<{
         </Card>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card className="p-5">
+          {vocabulary.isEventTenant && <Card className="p-5">
             <SectionTitle icon={<ChefHat className="h-5 w-5" />} title="Alimentos / chef" helper="Platos y bebidas enviados desde lo vendido" />
             <div className="mt-4 flex flex-wrap gap-2">
               <form action={generateCateringPlan.bind(null, event.id)}>
@@ -204,10 +206,10 @@ export default async function OperationEventPage({ params }: { params: Promise<{
                 </div>
               ))}
             </div>
-          </Card>
+          </Card>}
 
           <Card className="p-5">
-            <SectionTitle icon={<FileText className="h-5 w-5" />} title="Cotización aceptada" helper="Servicios vendidos para este evento" />
+            <SectionTitle icon={<FileText className="h-5 w-5" />} title="Cotización aceptada" helper={vocabulary.isEventTenant ? "Servicios vendidos para este evento" : "Servicios vendidos para este proyecto"} />
             {!quote ? <Empty text="No hay cotización aceptada asociada." /> : (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border bg-slate-50 p-4 text-sm">
@@ -228,7 +230,7 @@ export default async function OperationEventPage({ params }: { params: Promise<{
 
         <div className="mt-6 grid gap-6 xl:grid-cols-3">
           <Card className="p-5 xl:col-span-1">
-            <SectionTitle icon={<CheckCircle2 className="h-5 w-5" />} title="Checklist operativo" helper="Tareas del equipo operativo" />
+            <SectionTitle icon={<CheckCircle2 className="h-5 w-5" />} title={vocabulary.isEventTenant ? "Checklist operativo" : "Checklist de implementacion"} helper={vocabulary.isEventTenant ? "Tareas del equipo operativo" : "Tareas del equipo de postventa"} />
             <Dialog>
               <DialogTrigger asChild><Button className="mt-4" size="sm" variant="outline"><Plus className="h-4 w-4" /> Tarea</Button></DialogTrigger>
               <DialogContent>
@@ -282,7 +284,7 @@ export default async function OperationEventPage({ params }: { params: Promise<{
           </Card>
 
           <Card className="p-5">
-            <SectionTitle icon={<Clock className="h-5 w-5" />} title="Cronograma del evento" helper={`${scheduleProgress}% ejecutado`} />
+            <SectionTitle icon={<Clock className="h-5 w-5" />} title={vocabulary.isEventTenant ? "Cronograma del evento" : "Cronograma del proyecto"} helper={`${scheduleProgress}% ejecutado`} />
             <div className="mt-4 space-y-3">
               {event.scheduleItems.length === 0 ? <GeneratePlan eventId={event.id} returnTo={returnTo} /> : event.scheduleItems.map((item) => (
                 <div key={item.id} className="rounded-lg border bg-slate-50 p-4">

@@ -52,7 +52,7 @@ export default async function OperationPage() {
         }
       },
       activities: {
-        where: { type: "Operación" },
+        where: { type: { in: ["Operacion", "Operación", "OperaciÃ³n"] } },
         select: { status: true }
       },
       purchaseTasks: { select: { status: true } },
@@ -70,37 +70,37 @@ export default async function OperationPage() {
   const blockedItems = events.reduce((sum, event) => {
     const purchases = event.purchaseTasks.filter((task) => task.status === "Bloqueado").length;
     const schedule = event.scheduleItems.filter((item) => item.status === "Bloqueado").length;
-    const chef = event.cateringRequirements.filter((item) => item.status === "Bloqueado").length;
+    const chef = vocabulary.isEventTenant ? event.cateringRequirements.filter((item) => item.status === "Bloqueado").length : 0;
     return sum + purchases + schedule + chef;
   }, 0);
   const blockedEvents = events.filter((event) =>
     event.purchaseTasks.some((task) => task.status === "Bloqueado") ||
     event.scheduleItems.some((item) => item.status === "Bloqueado") ||
-    event.cateringRequirements.some((item) => item.status === "Bloqueado")
+    (vocabulary.isEventTenant && event.cateringRequirements.some((item) => item.status === "Bloqueado"))
   ).length;
 
   return (
     <AppShell title={vocabulary.isEventTenant ? "Eventos ganados" : "Proyectos ganados"} module="operacion">
       <PageTransition>
         <ModuleHero
-          eyebrow="Operación postventa"
-          title="Bandeja operativa de eventos ganados, con acceso directo al expediente de cada negocio."
-          description="Desde aquí se priorizan eventos, responsables, reservas, alimentos, compras y cronograma sin cargar toda la operación en una sola pantalla."
+          eyebrow={vocabulary.isEventTenant ? "Operacion postventa" : "Postventa comercial"}
+          title={vocabulary.isEventTenant ? "Bandeja operativa de eventos ganados, con acceso directo al expediente de cada negocio." : "Bandeja de proyectos ganados, con acceso directo al expediente de cada negocio."}
+          description={vocabulary.isEventTenant ? "Desde aqui se priorizan eventos, responsables, reservas, alimentos, compras y cronograma sin cargar toda la operacion en una sola pantalla." : "Desde aqui se priorizan proyectos ganados, responsables, tareas, compras internas y cronograma de implementacion."}
         />
 
-        <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <Kpi label="Eventos" value={String(events.length)} helper="Con código operativo" />
+        <div className={`mb-5 grid gap-3 md:grid-cols-2 ${vocabulary.isEventTenant ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
+          <Kpi label={vocabulary.isEventTenant ? "Eventos" : "Proyectos"} value={String(events.length)} helper="Con codigo operativo" />
           <Kpi label="En curso" value={String(inProgress)} helper="Pendientes de cierre" />
           <Kpi label="Valor ganado" value={formatCurrency(operativeValue)} helper="Cotizaciones aceptadas" />
-          <Kpi label="Bloqueos" value={String(blockedItems)} helper={`${blockedEvents} eventos afectados`} />
-          <Kpi label="Alimentos" value={`${readyChefItems}/${totalChefItems}`} helper="Preparación chef" />
+          <Kpi label="Bloqueos" value={String(blockedItems)} helper={`${blockedEvents} ${vocabulary.subjectPlural} afectados`} />
+          {vocabulary.isEventTenant && <Kpi label="Alimentos" value={`${readyChefItems}/${totalChefItems}`} helper="Preparacion chef" />}
         </div>
 
         <Card className="overflow-hidden">
           <div className="border-b px-5 py-4">
             <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="font-semibold">Eventos listos para operar</h2>
+                <h2 className="font-semibold">{vocabulary.isEventTenant ? "Eventos listos para operar" : "Proyectos listos para ejecutar"}</h2>
                 <p className="text-sm text-muted-foreground">Vista ligera para seguimiento ejecutivo. El detalle vive en el expediente.</p>
               </div>
               <p className="text-sm text-muted-foreground">{completedTasks}/{totalTasks} tareas completadas</p>
@@ -110,7 +110,7 @@ export default async function OperationPage() {
           <div className="divide-y">
             {events.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                Aún no hay cotizaciones aceptadas enviadas a operación.
+                Aun no hay cotizaciones aceptadas enviadas a {vocabulary.postSaleLabel.toLowerCase()}.
               </div>
             ) : (
               events.map((event) => {
@@ -118,12 +118,11 @@ export default async function OperationPage() {
                 const quote = event.quotes[0];
                 const taskReady = event.activities.filter((activity) => activity.status === "Finalizada").length;
                 const purchaseReady = event.purchaseTasks.filter((task) => ["Comprado", "Contratado", "No requerido"].includes(task.status)).length;
-                const scheduleReady = event.scheduleItems.filter((item) => ["Ejecutado", "Finalizado"].includes(item.status)).length;
                 const chefReady = event.cateringRequirements.filter((item) => chefDoneStatuses.includes(item.status)).length;
                 const blockedCount =
                   event.purchaseTasks.filter((task) => task.status === "Bloqueado").length +
                   event.scheduleItems.filter((item) => item.status === "Bloqueado").length +
-                  event.cateringRequirements.filter((item) => item.status === "Bloqueado").length;
+                  (vocabulary.isEventTenant ? event.cateringRequirements.filter((item) => item.status === "Bloqueado").length : 0);
 
                 return (
                   <article key={event.id} className="grid gap-4 px-5 py-4 transition-colors hover:bg-slate-50 xl:grid-cols-[1.2fr_0.9fr_0.9fr_auto] xl:items-center">
@@ -131,11 +130,11 @@ export default async function OperationPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-xs font-semibold uppercase text-primary">{event.operationCode}</p>
                         {blockedCount > 0 && <StatusBadge value="Bloqueado" />}
-                        <StatusBadge value={event.operationalStatus ?? "Pendiente de planeación"} />
+                        <StatusBadge value={event.operationalStatus ?? "Pendiente de planeacion"} />
                       </div>
                       <h3 className="mt-2 truncate font-semibold">{event.title}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {event.lead.fullName} · {event.lead.eventType} · {event.lead.peopleCount} personas
+                        {event.lead.fullName} - {event.lead.eventType}{vocabulary.isEventTenant ? ` - ${event.lead.peopleCount} personas` : ""}
                       </p>
                     </div>
 
@@ -145,21 +144,21 @@ export default async function OperationPage() {
                     </div>
 
                     <div className="grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-1">
-                      <Info icon={<MapPin className="h-4 w-4" />} label="Zona" value={reservation?.space?.name ?? "Sin reserva"} />
+                      <Info icon={<MapPin className="h-4 w-4" />} label={vocabulary.locationLabel} value={reservation?.space?.name ?? (vocabulary.isEventTenant ? "Sin reserva" : "Por definir")} />
                       <Info icon={<UserRound className="h-4 w-4" />} label="Responsable" value={event.assignedUser?.name ?? "Sin asignar"} />
                     </div>
 
                     <div className="flex flex-col gap-3 xl:min-w-80">
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className={`grid gap-2 ${vocabulary.isEventTenant ? "grid-cols-4" : "grid-cols-3"}`}>
                         <MiniProgress icon={<CheckCircle2 className="h-4 w-4" />} label="Tareas" value={`${taskReady}/${event.activities.length}`} />
                         <MiniProgress icon={<FileText className="h-4 w-4" />} label="Compras" value={`${purchaseReady}/${event.purchaseTasks.length}`} />
-                        <MiniProgress icon={<ChefHat className="h-4 w-4" />} label="Chef" value={`${chefReady}/${event.cateringRequirements.length}`} />
+                        {vocabulary.isEventTenant && <MiniProgress icon={<ChefHat className="h-4 w-4" />} label="Chef" value={`${chefReady}/${event.cateringRequirements.length}`} />}
                         <MiniProgress icon={<AlertTriangle className="h-4 w-4" />} label="Bloq." value={String(blockedCount)} />
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm">
                           <p className="font-semibold">{formatCurrency(Number(quote?.total ?? event.estimatedValue))}</p>
-                          <p className="text-xs text-muted-foreground">{quote?.quoteNumber ?? "Sin cotización aceptada"}</p>
+                          <p className="text-xs text-muted-foreground">{quote?.quoteNumber ?? "Sin cotizacion aceptada"}</p>
                         </div>
                         <Button asChild size="sm">
                           <Link href={`/operacion/${event.id}`}>
