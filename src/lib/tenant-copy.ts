@@ -24,24 +24,7 @@ const defaultQuoteCopy: QuotePresentationCopy = {
   footer: "Esta cotizacion es una propuesta comercial formal para el cliente. Los valores estan sujetos a disponibilidad, alcance final y condiciones acordadas."
 };
 
-const haciendaQuoteCopy: QuotePresentationCopy = {
-  subtitle: "Propuesta comercial para evento - Provexpress",
-  intro: (category) => `Propuesta para ${category.toLowerCase()} con servicios seleccionados, disponibilidad tentativa del espacio y condiciones comerciales.`,
-  contextTitle: "Evento",
-  peopleLabel: (count) => `${count} personas`,
-  operationTitle: "Operacion tentativa",
-  operationLines: {
-    locationFallback: "Espacio por confirmar",
-    scheduleFallback: "Horario por confirmar"
-  },
-  footer: "Esta cotizacion corresponde a una propuesta comercial de evento. Los valores estan sujetos a disponibilidad del espacio, alcance final y condiciones acordadas."
-};
-
-export function quotePresentationForTenant(clientSlug?: string | null): QuotePresentationCopy {
-  if (clientSlug === "hacienda-la-julieta") {
-    return haciendaQuoteCopy;
-  }
-
+export function quotePresentationForTenant(_clientSlug?: string | null): QuotePresentationCopy {
   return defaultQuoteCopy;
 }
 
@@ -68,29 +51,6 @@ export type TenantVocabulary = {
   reportTypeTitle: string;
 };
 
-const eventVocabulary: TenantVocabulary = {
-  isEventTenant: true,
-  subjectSingular: "evento",
-  subjectPlural: "eventos",
-  needLabel: "Tipo de evento",
-  quantityLabel: "Personas",
-  dateLabel: "Fecha tentativa",
-  reservationLabel: "reserva",
-  reservationPlural: "reservas",
-  locationLabel: "Espacio",
-  postSaleLabel: "Operacion",
-  postSalePlural: "Eventos operativos",
-  preparationLabel: "Alistamiento",
-  operationAction: "Aceptar y operar",
-  dashboardTitle: "De lead a evento operado, con trazabilidad comercial, financiera y logistica.",
-  dashboardMetric: "Eventos en operacion",
-  pipelineDescription: "Cada tarjeta conserva contexto del cliente, evento, responsable, prioridad y valor estimado para facilitar una gestion comercial fluida.",
-  leadsDescription: "Concentra informacion inicial del cliente, origen, tipo de evento, responsable y el salto natural hacia el pipeline comercial.",
-  quoteDescription: "El comercial puede crear la propuesta, enviarla, abrir el PDF, aceptar el negocio y disparar automaticamente operacion y alistamiento.",
-  reportReservationKpi: "Reservas confirmadas",
-  reportTypeTitle: "Tipo de evento"
-};
-
 const crmVocabulary: TenantVocabulary = {
   isEventTenant: false,
   subjectSingular: "proyecto",
@@ -114,6 +74,6 @@ const crmVocabulary: TenantVocabulary = {
   reportTypeTitle: "Tipo de necesidad"
 };
 
-export function vocabularyForTenant(clientSlug?: string | null): TenantVocabulary {
-  return clientSlug === "hacienda-la-julieta" ? eventVocabulary : crmVocabulary;
+export function vocabularyForTenant(_clientSlug?: string | null): TenantVocabulary {
+  return crmVocabulary;
 }

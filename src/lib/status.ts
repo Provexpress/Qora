@@ -1,4 +1,4 @@
-export const closedLeadStatuses = ["Evento finalizado", "Cerrado", "Perdido", "Lead perdido"] as const;
+export const closedLeadStatuses = ["Cerrado", "Perdido", "Lead perdido"] as const;
 
 export const operationalStageNames = ["Ganado / Operación", "Confirmado"] as const;
 

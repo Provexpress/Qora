@@ -45,12 +45,12 @@ export default async function FinancialPage() {
         <ModuleHero
           eyebrow="Control financiero comercial"
           title="Venta, costo, utilidad y margen conectados al flujo de cotización y operación."
-          description="Este tablero permite explicar la rentabilidad de cada propuesta y distinguir valor cotizado, valor ganado y eventos enviados a operación."
+          description="Este tablero permite explicar la rentabilidad de cada propuesta y distinguir valor cotizado, valor ganado y proyectos enviados a postventa."
           metrics={[
             { label: "Venta ganada", value: formatCurrency(wonRevenue), helper: "Cotizaciones aceptadas" },
             { label: "Utilidad ganada", value: formatCurrency(wonProfit), helper: `${wonMargin.toFixed(1)}% margen` },
             { label: "Cotizaciones", value: String(quotes.length), helper: "Histórico actual" },
-            { label: "Eventos operativos", value: String(wonOpportunities.length), helper: "Con código generado" }
+            { label: "Proyectos ganados", value: String(wonOpportunities.length), helper: "Con codigo generado" }
           ]}
         />
 
@@ -93,7 +93,7 @@ export default async function FinancialPage() {
               </div>
             </Card>
             <Card>
-              <CardHeader><CardTitle>Eventos enviados a operación</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Proyectos enviados a postventa</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {wonOpportunities.map((opportunity) => (
                   <div key={opportunity.id} className="rounded-lg border bg-white p-4">

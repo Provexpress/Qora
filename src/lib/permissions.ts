@@ -73,7 +73,7 @@ export const navigationSections: NavigationSection[] = [
   {
     label: "Operación",
     items: [
-      { module: "operacion", href: "/operacion", label: "Eventos ganados" },
+      { module: "operacion", href: "/operacion", label: "Proyectos ganados" },
       { module: "alistamiento", href: "/alistamiento", label: "Alistamiento" },
       { module: "agenda", href: "/agenda", label: "Agenda" }
     ]

@@ -53,15 +53,15 @@ export default async function PreparationPage() {
     <AppShell title="Alistamiento" module="alistamiento">
       <PageTransition>
         <ModuleHero
-          eyebrow="Preproducción del evento"
+          eyebrow="Postventa e implementacion"
           title="Convierte lo cotizado en compras, contrataciones, cronograma y cierre operativo."
-          description="Este módulo muestra el paso a paso después de aceptar la cotización: qué se debe comprar o contratar, cuándo se ejecuta cada bloque del evento y cómo se da cierre al negocio."
+          description="Este modulo muestra el paso a paso despues de aceptar la cotizacion: que se debe activar, comprar o coordinar, cuando se ejecuta cada bloque del proyecto y como se da cierre al negocio."
         />
 
         <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi icon={<ClipboardCheck className="h-5 w-5" />} label="Eventos en alistamiento" value={String(events.length)} helper="Con código operativo" />
+          <Kpi icon={<ClipboardCheck className="h-5 w-5" />} label="Proyectos en alistamiento" value={String(events.length)} helper="Con codigo operativo" />
           <Kpi icon={<ShoppingCart className="h-5 w-5" />} label="Compras listas" value={`${completedPurchases}/${allPurchases.length}`} helper={formatCurrency(totalPurchaseCost)} />
-          <Kpi icon={<CalendarClock className="h-5 w-5" />} label="Cronograma ejecutado" value={`${completedSchedule}/${allSchedule.length}`} helper="Bloques del evento" />
+          <Kpi icon={<CalendarClock className="h-5 w-5" />} label="Cronograma ejecutado" value={`${completedSchedule}/${allSchedule.length}`} helper="Bloques del proyecto" />
           <Kpi icon={<CheckCircle2 className="h-5 w-5" />} label="Cerrados" value={String(events.filter((event) => event.closedAt).length)} helper="Negocios finalizados" />
         </div>
 
@@ -81,7 +81,7 @@ export default async function PreparationPage() {
                       <p className="text-xs font-semibold uppercase text-primary">{event.operationCode}</p>
                       <h2 className="mt-1 text-xl font-semibold">{event.title}</h2>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {event.lead.fullName} · {event.lead.eventType} · {event.lead.peopleCount} personas
+                        {event.lead.fullName} - {event.lead.eventType}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -91,10 +91,10 @@ export default async function PreparationPage() {
                   </div>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-4">
-                    <Info label="Fecha evento" value={reservation ? format(reservation.reservationDate, "dd MMM yyyy", { locale: es }) : "Por definir"} />
+                    <Info label="Fecha agenda" value={reservation ? format(reservation.reservationDate, "dd MMM yyyy", { locale: es }) : "Por definir"} />
                     <Info label="Inicio" value={reservation?.startTime ?? "Por definir"} />
                     <Info label="Fin" value={reservation?.endTime ?? "Por definir"} />
-                    <Info label="Espacio" value={reservation?.space?.name ?? "Sin reserva"} />
+                    <Info label="Modalidad" value={reservation?.space?.name ?? "Por definir"} />
                   </div>
                 </div>
 
@@ -134,8 +134,8 @@ export default async function PreparationPage() {
                   <section>
                     <div className="mb-4 flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold">Paso a paso del evento</h3>
-                        <p className="text-sm text-muted-foreground">Horario de montaje, ejecución y cierre</p>
+                        <h3 className="font-semibold">Paso a paso del proyecto</h3>
+                        <p className="text-sm text-muted-foreground">Horario de ejecucion, revision y cierre</p>
                       </div>
                       <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{scheduleProgress}%</span>
                     </div>
@@ -166,7 +166,7 @@ export default async function PreparationPage() {
                   <aside className="rounded-lg border bg-slate-50 p-5">
                     <h3 className="font-semibold">Cierre del negocio</h3>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Cuando compras y cronograma estén al 100%, marca el evento como finalizado para cerrar el ciclo comercial y operativo.
+                      Cuando compras y cronograma esten al 100%, marca el proyecto como finalizado para cerrar el ciclo comercial y operativo.
                     </p>
                     <div className="mt-5 space-y-3 text-sm">
                       <p className="flex justify-between"><span className="text-muted-foreground">Cotización</span><strong>{quote?.quoteNumber ?? "Sin cotización"}</strong></p>

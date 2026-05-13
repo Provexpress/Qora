@@ -69,7 +69,7 @@ export async function generatePreparationPlan(opportunityId: string, formData?: 
               opportunityId,
               scheduleDate,
               title: item.title,
-              description: "Bloque sugerido para coordinar el día del evento.",
+              description: "Bloque sugerido para coordinar la ejecucion del proyecto.",
               startTime: index === 3 && reservation ? reservation.startTime : item.startTime,
               endTime: index === 6 && reservation ? reservation.endTime : item.endTime,
               type: item.type,
@@ -91,7 +91,7 @@ export async function generatePreparationPlan(opportunityId: string, formData?: 
         ]),
     prisma.opportunity.update({
       where: { id: opportunityId },
-      data: { operationalStatus: "Alistamiento en curso" }
+      data: { operationalStatus: "Implementacion en curso" }
     })
   ]);
 
@@ -141,12 +141,12 @@ export async function closePreparedEvent(opportunityId: string, formData?: FormD
       }
     }),
     prisma.activity.updateMany({
-      where: { opportunityId, type: "Operación", status: { not: "Finalizada" } },
+      where: { opportunityId, type: { in: ["Operacion", "Operación", "OperaciÃ³n"] }, status: { not: "Finalizada" } },
       data: { status: "Finalizada" }
     }),
     prisma.lead.updateMany({
       where: { opportunities: { some: { id: opportunityId } } },
-      data: { status: "Evento finalizado" }
+      data: { status: "Cerrado" }
     })
   ]);
 
@@ -155,7 +155,7 @@ export async function closePreparedEvent(opportunityId: string, formData?: FormD
     entityType: "Opportunity",
     entityId: opportunityId,
     action: "close",
-    summary: "Evento finalizado y negocio cerrado"
+    summary: "Proyecto finalizado y negocio cerrado"
   });
   revalidatePreparationViews();
   redirect(safeReturnTo(formData ? String(formData.get("returnTo") ?? "") : ""));

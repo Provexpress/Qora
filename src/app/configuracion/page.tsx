@@ -18,7 +18,7 @@ const roleGuides = [
   },
   {
     role: "Operativo",
-    focus: "Recibe eventos ganados, alimentos, compras, cronograma y cierre operativo.",
+    focus: "Recibe proyectos ganados, tareas internas, compras, cronograma y cierre de implementacion.",
     modules: "Agenda, Operación, Alistamiento, Asignaciones"
   }
 ];
@@ -29,8 +29,8 @@ const flowSteps = [
   "Seguimiento y reserva tentativa",
   "Cotización enviada",
   "Cotización aceptada",
-  "Evento enviado a operación",
-  "Alistamiento, chef y compras",
+  "Proyecto enviado a postventa",
+  "Alistamiento, tareas y compras",
   "Cierre del negocio"
 ];
 

@@ -36,7 +36,7 @@ export function QuoteForm({
   opportunities,
   services,
   canManageCosts,
-  mode = "event"
+  mode = "crm"
 }: {
   opportunities: OpportunityOption[];
   services: ServiceOption[];

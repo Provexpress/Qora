@@ -24,7 +24,7 @@ async function assertCommercialOpportunityAccess(user: Awaited<ReturnType<typeof
 
   if (!opportunity) throw new Error("Oportunidad no encontrada.");
   if (!canUseClient(user, opportunity.lead.clientId)) throw new Error("Esta oportunidad no pertenece al cliente activo.");
-  if (opportunity.operationCode) throw new Error("Esta oportunidad ya fue enviada a operación.");
+  if (opportunity.operationCode) throw new Error("Esta oportunidad ya fue enviada a postventa.");
   if (!isAdmin(user) && !canUseCommercialRecord(user, opportunity.assignedUserId) && !canUseCommercialRecord(user, opportunity.lead.assignedUserId)) {
     throw new Error("Esta oportunidad pertenece a otro responsable comercial.");
   }
@@ -242,7 +242,7 @@ export async function markQuoteAsWon(quoteId: string) {
     throw new Error("Esta cotización ya tiene un estado final.");
   }
 
-  const wonStage = await findOrCreateStage("Ganado / Operación", ["Ganado / Operaci\u00c3\u00b3n"], 6, "#059669");
+  const wonStage = await findOrCreateStage("Ganado / Postventa", ["Ganado / Operación", "Ganado / Operaci\u00c3\u00b3n"], 6, "#059669");
   const operator = await prisma.user.findFirst({ where: { role: { name: "Operativo" }, clientId: quote.opportunity.lead.clientId } });
   const operationCode = quote.opportunity.operationCode ?? (await nextOperationCode());
   const hasOperationalTasks = quote.opportunity.activities.some((activity) => activity.type === "Operación");
@@ -268,14 +268,14 @@ export async function markQuoteAsWon(quoteId: string) {
         stageId: wonStage.id,
         estimatedValue: quote.total,
         operationCode,
-        operationalStatus: "Alistamiento en curso",
+        operationalStatus: "Implementacion en curso",
         wonAt: quote.opportunity.wonAt ?? new Date(),
         assignedUserId: operator?.id ?? quote.opportunity.assignedUserId
       }
     }),
     prisma.lead.update({
       where: { id: quote.opportunity.leadId },
-      data: { status: "En operación" }
+      data: { status: "En operacion" }
     }),
     prisma.reservation.updateMany({
       where: { opportunityId: quote.opportunityId, status: "Pendiente" },
@@ -287,16 +287,16 @@ export async function markQuoteAsWon(quoteId: string) {
           prisma.activity.createMany({
             data: [
               "Confirmar alcance operativo con comercial",
-              "Validar disponibilidad de zona y proveedores",
-              "Preparar ficha técnica del evento",
-              "Coordinar montaje y personal de apoyo"
+              "Validar responsables y proveedores",
+              "Preparar ficha tecnica del proyecto",
+              "Coordinar entrega y capacitacion"
             ].map((title, index) => ({
               opportunityId: quote.opportunityId,
               userId: operator.id,
               title,
-              description: `Tarea operativa generada al aceptar la cotización ${quote.quoteNumber}.`,
+              description: `Tarea de postventa generada al aceptar la cotizacion ${quote.quoteNumber}.`,
               activityDate: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000),
-              type: "Operación",
+              type: "Operacion",
               status: "Pendiente"
             }))
           })
@@ -327,7 +327,7 @@ export async function markQuoteAsWon(quoteId: string) {
               opportunityId: quote.opportunityId,
               scheduleDate,
               title: item.title,
-              description: "Bloque sugerido para coordinar el día del evento.",
+              description: "Bloque sugerido para coordinar la ejecucion del proyecto.",
               startTime: index === 3 && reservation ? reservation.startTime : item.startTime,
               endTime: index === 6 && reservation ? reservation.endTime : item.endTime,
               type: item.type,
@@ -355,7 +355,7 @@ export async function markQuoteAsWon(quoteId: string) {
     entityType: "Quote",
     entityId: quote.id,
     action: "won",
-    summary: `Cotización ${quote.quoteNumber} aceptada y enviada a operación`,
+    summary: `Cotizacion ${quote.quoteNumber} aceptada y enviada a postventa`,
     metadata: { opportunityId: quote.opportunityId, operationCode }
   });
   await recordAudit({
@@ -363,7 +363,7 @@ export async function markQuoteAsWon(quoteId: string) {
     entityType: "Opportunity",
     entityId: quote.opportunityId,
     action: "send_to_operation",
-    summary: `Oportunidad enviada a operación con código ${operationCode}`
+    summary: `Oportunidad enviada a postventa con codigo ${operationCode}`
   });
   revalidateQuoteViews();
 }
@@ -461,7 +461,6 @@ async function nextQuoteNumber(clientSlug: string) {
 }
 
 function quotePrefix(clientSlug: string) {
-  if (clientSlug === "hacienda-la-julieta") return "HJ";
   if (clientSlug === "qora-demo") return "QD";
 
   const initials = clientSlug

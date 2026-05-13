@@ -2,6 +2,7 @@ import { AgendaWorkspace } from "@/components/agenda/agenda-workspace";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageTransition } from "@/components/layout/page-transition";
 import { requireModuleAccess } from "@/lib/auth";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { prisma } from "@/lib/prisma";
 import { activeClientFilter, activityScope, isAdmin, reservationScope, salesOpportunityScope } from "@/lib/scopes";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
   const currentUser = await requireModuleAccess("agenda");
-  const isEventTenant = currentUser.activeClient?.slug === "hacienda-la-julieta";
+  const isEventTenant = vocabularyForTenant(currentUser.activeClient?.slug).isEventTenant;
   const [activities, reservations, opportunities, users, spaces] = await Promise.all([
     prisma.activity.findMany({
       where: activityScope(currentUser),

@@ -253,8 +253,8 @@ export default async function ClientsPage() {
 function ClientForm() {
   return (
     <form action={createClient} className="grid gap-4 md:grid-cols-2">
-      <Field label="Nombre"><Input name="name" placeholder="Ej. Cliente Eventos Norte" /></Field>
-      <Field label="Slug"><Input name="slug" placeholder="cliente-eventos-norte" /></Field>
+      <Field label="Nombre"><Input name="name" placeholder="Ej. Cliente Demo Norte" /></Field>
+      <Field label="Slug"><Input name="slug" placeholder="cliente-demo-norte" /></Field>
       <Field label="Estado">
         <select name="status" defaultValue="Activo" className="h-10 w-full rounded-md border bg-white px-3 text-sm">
           <option>Activo</option>
