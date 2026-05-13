@@ -9,6 +9,7 @@ import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { activityScope, quoteScope, reservationScope, salesLeadScope, salesOpportunityScope } from "@/lib/scopes";
 import { closedLeadStatuses } from "@/lib/status";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function ReportsPage() {
   const now = new Date();
   const staleQuoteDate = subDays(now, 3);
   const currentUser = await requireModuleAccess("reportes");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
 
   const [stages, quotes, reservations, activities, leads, leadsWithoutOpportunity, eventsWithoutPlan] = await Promise.all([
     prisma.pipelineStage.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { opportunities: { where: salesOpportunityScope(currentUser) } } } } }),
@@ -69,7 +71,7 @@ export default async function ReportsPage() {
           <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Conversión comercial" value={`${conversion.toFixed(1)}%`} helper={`${acceptedQuotes.length} aceptadas / ${leads.length} leads`} />
           <KpiCard icon={<CircleDollarSign className="h-5 w-5" />} label="Venta cotizada" value={formatCurrency(totalSales)} helper={`${quotes.length} cotizaciones`} />
           <KpiCard icon={<Percent className="h-5 w-5" />} label="Margen promedio" value={`${averageMargin.toFixed(1)}%`} helper={formatCurrency(totalProfit)} />
-          <KpiCard icon={<CalendarCheck className="h-5 w-5" />} label="Reservas confirmadas" value={String(confirmedReservations)} helper={`${reservations.length} reservas totales`} />
+          <KpiCard icon={<CalendarCheck className="h-5 w-5" />} label={vocabulary.reportReservationKpi} value={String(confirmedReservations)} helper={`${reservations.length} ${vocabulary.reservationPlural} totales`} />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -100,11 +102,11 @@ export default async function ReportsPage() {
             <CardContent className="grid gap-3">
               <HealthRow label="Actividades vencidas" value={String(overdueActivities)} helper="Seguimiento fuera de fecha" />
               <HealthRow label="Cotizaciones sin respuesta" value={String(staleSentQuotes)} helper="Enviadas hace 3+ dias" />
-              <HealthRow label="Eventos sin alistamiento" value={String(eventsWithoutPlan)} helper="Compras o cronograma pendientes" />
+              <HealthRow label={vocabulary.isEventTenant ? "Eventos sin alistamiento" : "Proyectos sin plan"} value={String(eventsWithoutPlan)} helper="Compras o cronograma pendientes" />
               <HealthRow label="Leads sin oportunidad" value={String(leadsWithoutOpportunity)} helper="Requieren calificacion" />
               <HealthRow label="Actividades pendientes" value={String(pendingActivities)} helper="Seguimiento por ejecutar" />
               <HealthRow label="Cotizaciones aceptadas" value={String(acceptedQuotes.length)} helper="Enviadas a operación" />
-              <HealthRow label="Reservas en agenda" value={String(reservations.length)} helper={`${confirmedReservations} confirmadas`} />
+              <HealthRow label={vocabulary.isEventTenant ? "Reservas en agenda" : "Agendas registradas"} value={String(reservations.length)} helper={`${confirmedReservations} confirmadas`} />
             </CardContent>
           </Card>
 
@@ -119,7 +121,7 @@ export default async function ReportsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Tipo de evento</CardTitle>
+              <CardTitle>{vocabulary.reportTypeTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {eventRows.map((row) => <DistributionRow key={row.label} row={row} max={Math.max(...eventRows.map((item) => item.count), 1)} />)}
@@ -142,7 +144,7 @@ export default async function ReportsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Estado de reservas</CardTitle>
+              <CardTitle>{vocabulary.isEventTenant ? "Estado de reservas" : "Estado de agenda"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {reservationStatusRows.map((row) => (

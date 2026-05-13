@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { salesOpportunityScope } from "@/lib/scopes";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ const chefDoneStatuses = ["Listo", "Entregado", "Finalizada"];
 
 export default async function OperationPage() {
   const currentUser = await requireModuleAccess("operacion");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const events = await prisma.opportunity.findMany({
     where: { AND: [salesOpportunityScope(currentUser), { operationCode: { not: null } }] },
     orderBy: [{ closedAt: "asc" }, { wonAt: "desc" }, { updatedAt: "desc" }],
@@ -78,7 +80,7 @@ export default async function OperationPage() {
   ).length;
 
   return (
-    <AppShell title="Eventos ganados" module="operacion">
+    <AppShell title={vocabulary.isEventTenant ? "Eventos ganados" : "Proyectos ganados"} module="operacion">
       <PageTransition>
         <ModuleHero
           eyebrow="Operación postventa"

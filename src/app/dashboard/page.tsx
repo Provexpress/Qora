@@ -8,20 +8,21 @@ import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { activityScope, quoteScope, reservationScope, salesLeadScope, salesOpportunityScope } from "@/lib/scopes";
 import { closedLeadStatuses } from "@/lib/status";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const processSteps = [
-  { label: "Lead", helper: "Captura y calificacion", icon: UserRoundPlus },
-  { label: "Pipeline", helper: "Seguimiento comercial", icon: KanbanSquare },
-  { label: "Cotizacion", helper: "PDF y aprobacion", icon: FileText },
-  { label: "Operacion", helper: "Codigo y checklist", icon: ClipboardList },
-  { label: "Cierre", helper: "Ejecucion y utilidad", icon: CheckCircle2 }
-];
-
 export default async function DashboardPage() {
   const currentUser = await requireModuleAccess("dashboard");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
+  const processSteps = [
+    { label: "Lead", helper: "Captura y calificacion", icon: UserRoundPlus },
+    { label: "Pipeline", helper: "Seguimiento comercial", icon: KanbanSquare },
+    { label: "Cotizacion", helper: "PDF y aprobacion", icon: FileText },
+    { label: vocabulary.postSaleLabel, helper: "Codigo y checklist", icon: ClipboardList },
+    { label: "Cierre", helper: "Ejecucion y utilidad", icon: CheckCircle2 }
+  ];
   const opportunityScope = salesOpportunityScope(currentUser);
 
   const [leadCount, activeOpps, sentQuotes, tentativeReservations, pendingActivities, operationCount, opportunities, activities, quotes, stages] = await Promise.all([
@@ -46,10 +47,10 @@ export default async function DashboardPage() {
             <div>
               <div className="mb-4 h-1 w-16 rounded-full bg-primary/70" />
               <p className="text-xs font-semibold uppercase text-primary">Proceso comercial {currentUser.activeClient?.name ?? "Qora"}</p>
-              <h2 className="mt-2 max-w-2xl text-xl font-semibold tracking-normal">De lead a evento operado, con trazabilidad comercial, financiera y logistica.</h2>
+              <h2 className="mt-2 max-w-2xl text-xl font-semibold tracking-normal">{vocabulary.dashboardTitle}</h2>
             </div>
             <div className="rounded-lg border bg-slate-50 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Eventos en operacion</p>
+              <p className="text-xs text-muted-foreground">{vocabulary.dashboardMetric}</p>
               <p className="mt-1 text-2xl font-semibold">{operationCount}</p>
             </div>
           </div>
@@ -71,7 +72,7 @@ export default async function DashboardPage() {
           <StatCard title="Leads activos" value={String(leadCount)} helper="Cartera visible para tu rol" icon="users" index={0} />
           <StatCard title="Oportunidades activas" value={String(activeOpps)} helper="Negocios en gestion" icon="trending" index={1} />
           <StatCard title="Cotizaciones enviadas" value={String(sentQuotes)} helper="Pendientes de respuesta" icon="file" index={2} />
-          <StatCard title="Reservas tentativas" value={String(tentativeReservations)} helper="Bloqueos pendientes" icon="calendar" index={3} />
+          <StatCard title={vocabulary.isEventTenant ? "Reservas tentativas" : "Agendas comerciales"} value={String(tentativeReservations)} helper={vocabulary.isEventTenant ? "Bloqueos pendientes" : "Confirmaciones pendientes"} icon="calendar" index={3} />
           <StatCard title="Valor estimado" value={formatCurrency(pipelineValue)} helper="Ultimas oportunidades visibles" icon="wallet" index={4} />
           <StatCard title="Actividades pendientes" value={String(pendingActivities)} helper="Seguimiento segun rol" icon="todo" index={5} />
         </div>

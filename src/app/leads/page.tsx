@@ -14,6 +14,7 @@ import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, salesLeadScope } from "@/lib/scopes";
 import { closedLeadStatuses } from "@/lib/status";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 
 export const dynamic = "force-dynamic";
 const pageSize = 12;
@@ -27,6 +28,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(Number(params.page ?? 1), 1);
   const showHistorical = scope === "historico";
   const currentUser = await requireModuleAccess("leads");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const where: Prisma.LeadWhereInput = {
     AND: [
       salesLeadScope(currentUser),
@@ -117,7 +119,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </div>
           <Dialog>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nuevo lead</Button></DialogTrigger>
-            <DialogContent><DialogHeader><DialogTitle>Crear lead</DialogTitle></DialogHeader><LeadForm users={userOptions} /></DialogContent>
+            <DialogContent><DialogHeader><DialogTitle>Crear lead</DialogTitle></DialogHeader><LeadForm users={userOptions} mode={vocabulary.isEventTenant ? "event" : "crm"} /></DialogContent>
           </Dialog>
         </div>
 
@@ -127,7 +129,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <span>Página {page} de {totalPages}</span>
           </div>
           <div className="grid min-w-[1060px] grid-cols-[1.2fr_0.8fr_0.8fr_0.7fr_0.8fr_340px] gap-3 border-b bg-muted px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
-            <span>Cliente</span><span>Evento</span><span>Origen</span><span>Estado</span><span>Responsable</span><span>Acciones</span>
+            <span>Cliente</span><span>{vocabulary.needLabel}</span><span>Origen</span><span>Estado</span><span>Responsable</span><span>Acciones</span>
           </div>
           <div className="divide-y overflow-x-auto">
             {leadRows.map((lead) => (
@@ -143,7 +145,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   </Button>
                   <Dialog>
                     <DialogTrigger asChild><Button size="sm" variant="outline"><Pencil className="h-4 w-4" /> Editar</Button></DialogTrigger>
-                    <DialogContent><DialogHeader><DialogTitle>Editar lead</DialogTitle></DialogHeader><LeadForm users={userOptions} lead={lead} /></DialogContent>
+                    <DialogContent><DialogHeader><DialogTitle>Editar lead</DialogTitle></DialogHeader><LeadForm users={userOptions} lead={lead} mode={vocabulary.isEventTenant ? "event" : "crm"} /></DialogContent>
                   </Dialog>
                   <OpportunityForm lead={lead} users={userOptions} stages={stageOptions} />
                 </div>

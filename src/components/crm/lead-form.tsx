@@ -15,8 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 type UserOption = { id: string; name: string };
 type LeadFormValues = z.infer<typeof leadSchema>;
 type LeadFormInitial = Partial<LeadFormValues> & { id?: string };
+type LeadFormMode = "event" | "crm";
 
-export function LeadForm({ users, lead }: { users: UserOption[]; lead?: LeadFormInitial }) {
+export function LeadForm({ users, lead, mode = "event" }: { users: UserOption[]; lead?: LeadFormInitial; mode?: LeadFormMode }) {
   const [pending, startTransition] = useTransition();
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
@@ -25,9 +26,9 @@ export function LeadForm({ users, lead }: { users: UserOption[]; lead?: LeadForm
       phone: lead?.phone ?? "",
       email: lead?.email ?? "",
       source: lead?.source ?? "Instagram",
-      eventType: lead?.eventType ?? "Boda",
+      eventType: lead?.eventType ?? (mode === "event" ? "Boda" : "Implementacion CRM"),
       estimatedDate: lead?.estimatedDate ?? "",
-      peopleCount: lead?.peopleCount ?? 80,
+      peopleCount: lead?.peopleCount ?? (mode === "event" ? 80 : 5),
       status: lead?.status ?? "Nuevo",
       assignedUserId: lead?.assignedUserId ?? users[0]?.id,
       notes: lead?.notes ?? ""
@@ -53,9 +54,9 @@ export function LeadForm({ users, lead }: { users: UserOption[]; lead?: LeadForm
       <Field label="Teléfono"><Input {...form.register("phone")} placeholder="3001234567" /></Field>
       <Field label="Correo"><Input type="email" {...form.register("email")} placeholder="cliente@email.com" /></Field>
       <Field label="Origen"><Input {...form.register("source")} /></Field>
-      <Field label="Tipo de evento"><Input {...form.register("eventType")} /></Field>
-      <Field label="Fecha tentativa"><Input type="date" {...form.register("estimatedDate")} /></Field>
-      <Field label="Personas"><Input type="number" {...form.register("peopleCount")} /></Field>
+      <Field label={mode === "event" ? "Tipo de evento" : "Necesidad"}><Input {...form.register("eventType")} /></Field>
+      <Field label={mode === "event" ? "Fecha tentativa" : "Fecha estimada"}><Input type="date" {...form.register("estimatedDate")} /></Field>
+      <Field label={mode === "event" ? "Personas" : "Alcance"}><Input type="number" {...form.register("peopleCount")} /></Field>
       <Field label="Estado"><Input {...form.register("status")} /></Field>
       <Field label="Responsable">
         <select className="h-10 w-full rounded-md border bg-white px-3 text-sm" {...form.register("assignedUserId")}>

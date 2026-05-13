@@ -5,38 +5,49 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { FilePlus2, Loader2, Plus, Trash2 } from "lucide-react";
 import { createQuote } from "@/actions/quotes";
-import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCurrency } from "@/lib/utils";
 
 type OpportunityOption = { id: string; title: string; lead: { fullName: string; eventType: string } };
 type ServiceOption = { id: string; name: string; category: string; price: number; cost: number };
 type QuoteItemState = { serviceItemId?: string; description: string; quantity: number; unitPrice: number; unitCost: number };
+type QuoteMode = "event" | "crm";
 
-const templates: Record<string, string[]> = {
-  Boda: ["Alquiler de espacio", "Decoración base", "Flores", "Sonido", "Alimentación", "Fotografía"],
-  "Evento empresarial": ["Alquiler de espacio", "Sonido", "Alimentación", "Mobiliario", "Personal de apoyo"],
-  Cumpleaños: ["Alquiler de espacio", "Decoración base", "Alimentación", "Estación de bebidas"],
-  "Celebración privada": ["Zona privada", "Alimentación", "Mobiliario", "Personal de apoyo"],
-  "Evento campestre": ["Alquiler de espacio", "Montaje especial", "Alimentación", "Estación de bebidas", "Personal de apoyo"]
+const eventTemplates: Record<string, string[]> = {
+  Boda: ["Alquiler de espacio", "Decoracion base", "Flores", "Sonido", "Alimentacion", "Fotografia"],
+  "Evento empresarial": ["Alquiler de espacio", "Sonido", "Alimentacion", "Mobiliario", "Personal de apoyo"],
+  Cumpleanos: ["Alquiler de espacio", "Decoracion base", "Alimentacion", "Estacion de bebidas"],
+  "Celebracion privada": ["Zona privada", "Alimentacion", "Mobiliario", "Personal de apoyo"],
+  "Evento campestre": ["Alquiler de espacio", "Montaje especial", "Alimentacion", "Estacion de bebidas", "Personal de apoyo"]
+};
+
+const crmTemplates: Record<string, string[]> = {
+  "Implementacion CRM": ["Diagnostico comercial", "Implementacion CRM", "Capacitacion por rol", "Reporte gerencial avanzado"],
+  "Automatizacion comercial": ["Diagnostico comercial", "Automatizacion de seguimiento", "Capacitacion por rol"],
+  "Reporte gerencial": ["Diagnostico comercial", "Reporte gerencial avanzado"],
+  "Soporte y adopcion": ["Capacitacion por rol", "Soporte mensual"]
 };
 
 export function QuoteForm({
   opportunities,
   services,
-  canManageCosts
+  canManageCosts,
+  mode = "event"
 }: {
   opportunities: OpportunityOption[];
   services: ServiceOption[];
   canManageCosts: boolean;
+  mode?: QuoteMode;
 }) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const templates = mode === "event" ? eventTemplates : crmTemplates;
   const [opportunityId, setOpportunityId] = useState(opportunities[0]?.id ?? "");
-  const [title, setTitle] = useState("Cotización comercial");
+  const [title, setTitle] = useState("Cotizacion comercial");
   const [status, setStatus] = useState("Borrador");
   const [discount, setDiscount] = useState(0);
   const [targetMargin, setTargetMargin] = useState(35);
@@ -59,7 +70,7 @@ export function QuoteForm({
       {
         serviceItemId: service.id,
         description: service.name,
-        quantity: service.category === "Catering" ? 80 : 1,
+        quantity: mode === "event" && service.category === "Catering" ? 80 : 1,
         unitPrice: service.price,
         unitCost: service.cost
       }
@@ -68,16 +79,17 @@ export function QuoteForm({
 
   const applyTemplate = (name: string) => {
     const names = templates[name] ?? [];
+    const normalizedNames = names.map(normalizeTemplateName);
     const next = services
-      .filter((service) => names.includes(service.name))
+      .filter((service) => normalizedNames.includes(normalizeTemplateName(service.name)))
       .map((service) => ({
         serviceItemId: service.id,
         description: service.name,
-        quantity: service.category === "Catering" || service.name === "Mobiliario" ? 80 : 1,
+        quantity: mode === "event" && (service.category === "Catering" || service.name === "Mobiliario") ? 80 : 1,
         unitPrice: service.price,
         unitCost: service.cost
       }));
-    setTitle(`Cotización ${name}`);
+    setTitle(`Cotizacion ${name}`);
     setItems(next);
   };
 
@@ -92,7 +104,7 @@ export function QuoteForm({
   };
 
   const addCustomItem = () => {
-    setItems((current) => [...current, { description: "Ítem personalizado", quantity: 1, unitPrice: 0, unitCost: 0 }]);
+    setItems((current) => [...current, { description: "Item personalizado", quantity: 1, unitPrice: 0, unitCost: 0 }]);
   };
 
   const applyTargetMargin = () => {
@@ -106,15 +118,15 @@ export function QuoteForm({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><FilePlus2 className="h-4 w-4" /> Nueva cotización</Button></DialogTrigger>
+      <DialogTrigger asChild><Button><FilePlus2 className="h-4 w-4" /> Nueva cotizacion</Button></DialogTrigger>
       <DialogContent className="w-[min(96vw,1080px)]">
-        <DialogHeader><DialogTitle>Crear cotización</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Crear cotizacion</DialogTitle></DialogHeader>
         <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Oportunidad">
                 <select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={opportunityId} onChange={(event) => setOpportunityId(event.target.value)}>
-                  {opportunities.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.lead.fullName}</option>)}
+                  {opportunities.map((item) => <option key={item.id} value={item.id}>{item.title} - {item.lead.fullName}</option>)}
                 </select>
               </Field>
               <Field label="Plantilla">
@@ -123,14 +135,14 @@ export function QuoteForm({
                   {Object.keys(templates).map((name) => <option key={name}>{name}</option>)}
                 </select>
               </Field>
-              <Field label="Título"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
+              <Field label="Titulo"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
               <Field label="Estado">
                 <select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={status} onChange={(event) => setStatus(event.target.value)}>
                   <option>Borrador</option>
                   <option>Enviada</option>
                 </select>
               </Field>
-              <Field label="Válida hasta"><Input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></Field>
+              <Field label="Valida hasta"><Input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></Field>
               <Field label="Descuento"><Input type="number" value={discount} onChange={(event) => setDiscount(Number(event.target.value))} /></Field>
               <Field label="Margen objetivo">
                 <div className="flex gap-2">
@@ -141,7 +153,7 @@ export function QuoteForm({
             </div>
             <div className="rounded-lg border">
               <div className="grid grid-cols-[1fr_70px_104px_104px_82px_42px] gap-2 border-b bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
-                <span>Ítem</span><span>Cant.</span><span>Venta</span><span>Costo</span><span>Margen</span><span />
+                <span>Item</span><span>Cant.</span><span>Venta</span><span>Costo</span><span>Margen</span><span />
               </div>
               <div className="divide-y">
                 {items.map((item, index) => {
@@ -159,7 +171,7 @@ export function QuoteForm({
                         type="number"
                         value={item.unitCost}
                         disabled={!canEditCost}
-                        title={canEditCost ? "Costo estimado para calcular utilidad" : "Costo base bloqueado desde Catálogo"}
+                        title={canEditCost ? "Costo estimado para calcular utilidad" : "Costo base bloqueado desde Catalogo"}
                         onChange={(event) => setItems((current) => current.map((row, idx) => idx === index ? { ...row, unitCost: Number(event.target.value) } : row))}
                       />
                       <span className={`flex h-10 items-center justify-end rounded-md border px-2 text-xs font-semibold ${marginTone(itemMargin)}`}>{itemMargin.toFixed(1)}%</span>
@@ -170,7 +182,7 @@ export function QuoteForm({
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button type="button" variant="outline" onClick={addCustomItem}><Plus className="h-4 w-4" /> Ítem personalizado</Button>
+              <Button type="button" variant="outline" onClick={addCustomItem}><Plus className="h-4 w-4" /> Item personalizado</Button>
               <p className="text-xs text-muted-foreground">
                 Margen objetivo recalcula venta desde costo. La margen real siempre queda calculada por el sistema.
               </p>
@@ -184,14 +196,14 @@ export function QuoteForm({
                 {services.map((service) => (
                   <button key={service.id} type="button" onClick={() => addService(service)} className="w-full rounded-md border bg-white p-3 text-left text-sm hover:border-primary">
                     <span className="font-medium">{service.name}</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">{service.category} · venta {formatCurrency(service.price)}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{service.category} - venta {formatCurrency(service.price)}</span>
                     {canManageCosts && <span className="mt-1 block text-xs text-muted-foreground">costo {formatCurrency(service.cost)}</span>}
                   </button>
                 ))}
               </div>
             </div>
             <div className="rounded-lg border bg-white p-4">
-              <p className="text-sm text-muted-foreground">{selectedOpportunity?.lead.eventType ?? "Cotización"}</p>
+              <p className="text-sm text-muted-foreground">{selectedOpportunity?.lead.eventType ?? "Cotizacion"}</p>
               <div className="mt-3 space-y-2 text-sm">
                 <p className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></p>
                 <p className="flex justify-between"><span>Costo</span><strong>{formatCurrency(costSubtotal)}</strong></p>
@@ -204,7 +216,7 @@ export function QuoteForm({
                 El comercial puede definir margen objetivo para sugerir precios. Margen real = utilidad / total neto.
               </p>
               {discountTooHigh && <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">El descuento no puede superar el subtotal.</p>}
-              {customItemMissingCost && <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">Todo ítem personalizado debe tener costo estimado mayor a cero.</p>}
+              {customItemMissingCost && <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">Todo item personalizado debe tener costo estimado mayor a cero.</p>}
               <Button className="mt-4 w-full" onClick={submit} disabled={!canSave}>{pending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar y abrir PDF</Button>
             </div>
           </aside>
@@ -233,4 +245,11 @@ function marginTextTone(value: number) {
 function priceFromMargin(cost: number, margin: number) {
   const normalizedMargin = Math.min(Math.max(margin, 0), 90) / 100;
   return Math.round(cost / (1 - normalizedMargin));
+}
+
+function normalizeTemplateName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }

@@ -12,12 +12,14 @@ import { StatusBadge } from "@/components/crm/status-badge";
 import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { activeClientFilter, quoteScope, salesOpportunityScope } from "@/lib/scopes";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function QuotesPage() {
   const currentUser = await requireModuleAccess("cotizaciones");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const [quotes, opportunities, services] = await Promise.all([
     prisma.quote.findMany({
       where: quoteScope(currentUser),
@@ -41,11 +43,11 @@ export default async function QuotesPage() {
         <ModuleHero
           eyebrow="Propuestas y cierre"
           title="Cotizaciones con estados reales: borrador, enviada, aceptada, rechazada y vencida."
-          description="El comercial puede crear la propuesta, enviarla, abrir el PDF, aceptar el negocio y disparar automáticamente operación y alistamiento."
+          description={vocabulary.quoteDescription}
         />
 
         <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi label="Cotizaciones" value={String(quotes.length)} helper="Histórico actual" />
+          <Kpi label="Cotizaciones" value={String(quotes.length)} helper="Historico actual" />
           <Kpi label="Valor cotizado" value={formatCurrency(totalQuoted)} helper="Total neto" />
           <Kpi label="Aceptadas" value={String(accepted)} helper="Ganadas" />
           <Kpi label="Margen prom." value={`${averageMargin.toFixed(1)}%`} helper="Venta menos costo" />
@@ -53,7 +55,7 @@ export default async function QuotesPage() {
 
         <Card className="mb-6 p-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <MarginRule icon={<ShieldCheck className="h-4 w-4" />} title="Costo base" text="Lo administra el rol Administrador en Catálogo." />
+            <MarginRule icon={<ShieldCheck className="h-4 w-4" />} title="Costo base" text="Lo administra el rol Administrador en Catalogo." />
             <MarginRule icon={<Tags className="h-4 w-4" />} title="Precio y descuento" text="Lo define Comercial al armar la propuesta." />
             <MarginRule icon={<Calculator className="h-4 w-4" />} title="Margen" text="Se calcula: utilidad / total neto. No se digita manualmente." />
           </div>
@@ -68,6 +70,7 @@ export default async function QuotesPage() {
             canManageCosts={canManageCosts}
             opportunities={opportunities.map((o) => ({ id: o.id, title: o.title, lead: { fullName: o.lead.fullName, eventType: o.lead.eventType } }))}
             services={services.map((s) => ({ id: s.id, name: s.name, category: s.category, price: Number(s.price), cost: Number(s.cost) }))}
+            mode={vocabulary.isEventTenant ? "event" : "crm"}
           />
         </div>
 
@@ -78,7 +81,7 @@ export default async function QuotesPage() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">{quote.quoteNumber}</p>
                   <h2 className="mt-1 font-semibold">{quote.title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{quote.opportunity.lead.fullName} · {quote.opportunity.lead.eventType}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{quote.opportunity.lead.fullName} - {quote.opportunity.lead.eventType}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <StatusBadge value={quote.status} />
@@ -86,7 +89,7 @@ export default async function QuotesPage() {
                 </div>
               </div>
 
-              <QuoteProcess status={quote.status} />
+              <QuoteProcess status={quote.status} finalLabel={vocabulary.postSaleLabel} />
 
               <div className="mt-5 rounded-lg border bg-slate-50 p-4">
                 <div className="flex justify-between text-sm"><span>Subtotal</span><strong>{formatCurrency(Number(quote.subtotal))}</strong></div>
@@ -110,7 +113,7 @@ export default async function QuotesPage() {
                   )}
                   {(quote.status === "Borrador" || quote.status === "Enviada") && (
                     <form action={markQuoteAsWon.bind(null, quote.id)}>
-                      <SubmitButton size="sm" pendingText="Aceptando..."><CheckCircle2 className="h-4 w-4" /> Aceptar y operar</SubmitButton>
+                      <SubmitButton size="sm" pendingText="Aceptando..."><CheckCircle2 className="h-4 w-4" /> {vocabulary.operationAction}</SubmitButton>
                     </form>
                   )}
                   {quote.status === "Enviada" && (
@@ -155,8 +158,8 @@ function MarginRule({ icon, title, text }: { icon: React.ReactNode; title: strin
   );
 }
 
-function QuoteProcess({ status }: { status: string }) {
-  const steps = ["Borrador", "Enviada", "Aceptada", "Operación"];
+function QuoteProcess({ status, finalLabel }: { status: string; finalLabel: string }) {
+  const steps = ["Borrador", "Enviada", "Aceptada", finalLabel];
   const index = status === "Aceptada" ? 3 : Math.max(steps.indexOf(status), 0);
   const failed = status === "Rechazada" || status === "Vencida";
 

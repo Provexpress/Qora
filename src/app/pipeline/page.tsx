@@ -5,12 +5,14 @@ import { PipelineBoard } from "@/components/pipeline/pipeline-board";
 import { requireModuleAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { salesOpportunityScope } from "@/lib/scopes";
+import { vocabularyForTenant } from "@/lib/tenant-copy";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
   const currentUser = await requireModuleAccess("pipeline");
+  const vocabulary = vocabularyForTenant(currentUser.activeClient?.slug);
   const stages = await prisma.pipelineStage.findMany({
     orderBy: { order: "asc" },
     include: { opportunities: { where: salesOpportunityScope(currentUser), orderBy: { updatedAt: "desc" }, include: { lead: true, assignedUser: true } } }
@@ -38,13 +40,13 @@ export default async function PipelinePage() {
     <AppShell title="Pipeline comercial" module="pipeline">
       <PageTransition>
         <ModuleHero
-          eyebrow="Gestión de oportunidades"
+          eyebrow="Gestion de oportunidades"
           title="Kanban comercial para priorizar, mover y cerrar negocios con claridad."
-          description="Cada tarjeta conserva contexto del cliente, evento, responsable, prioridad y valor estimado para facilitar una gestión comercial fluida."
+          description={vocabulary.pipelineDescription}
           metrics={[
             { label: "Oportunidades", value: String(allOpportunities.length), helper: "En tablero" },
             { label: "Valor pipeline", value: formatCurrency(pipelineValue), helper: "Estimado" },
-            { label: "Alta prioridad", value: String(hotOpportunities), helper: "Atención inmediata" },
+            { label: "Alta prioridad", value: String(hotOpportunities), helper: "Atencion inmediata" },
             { label: "Etapas", value: String(parsed.length), helper: "Flujo configurado" }
           ]}
         />
