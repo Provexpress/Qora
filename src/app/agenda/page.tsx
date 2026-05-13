@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
   const currentUser = await requireModuleAccess("agenda");
+  const isEventTenant = currentUser.activeClient?.slug === "hacienda-la-julieta";
   const [activities, reservations, opportunities, users, spaces] = await Promise.all([
     prisma.activity.findMany({
       where: activityScope(currentUser),
@@ -26,9 +27,10 @@ export default async function AgendaPage() {
   ]);
 
   return (
-    <AppShell title="Agenda / reservas tentativas" module="agenda">
+    <AppShell title={isEventTenant ? "Agenda / reservas tentativas" : "Agenda comercial"} module="agenda">
       <PageTransition>
         <AgendaWorkspace
+          mode={isEventTenant ? "event" : "crm"}
           activities={activities.map((activity) => ({
             id: activity.id,
             title: activity.title,
@@ -46,7 +48,7 @@ export default async function AgendaPage() {
               }
             }
           }))}
-          reservations={reservations.map((reservation) => ({
+          reservations={(isEventTenant ? reservations : []).map((reservation) => ({
             id: reservation.id,
             reservationDate: reservation.reservationDate.toISOString(),
             startTime: reservation.startTime,
@@ -72,7 +74,7 @@ export default async function AgendaPage() {
             eventType: opportunity.lead.eventType
           }))}
           users={users.map((user) => ({ id: user.id, name: user.name }))}
-          spaces={spaces.map((space) => ({ id: space.id, name: space.name, capacity: space.capacity }))}
+          spaces={(isEventTenant ? spaces : []).map((space) => ({ id: space.id, name: space.name, capacity: space.capacity }))}
         />
       </PageTransition>
     </AppShell>

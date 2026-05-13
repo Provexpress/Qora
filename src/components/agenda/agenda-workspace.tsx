@@ -23,6 +23,7 @@ import {
   Filter,
   LayoutList,
   MapPin,
+  PhoneCall,
   Plus,
   Rows3,
   Sparkles,
@@ -38,6 +39,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+type AgendaMode = "event" | "crm";
 type ViewMode = "week" | "day" | "list";
 
 type SpaceOption = {
@@ -97,6 +99,7 @@ type AgendaActivity = {
 };
 
 type AgendaWorkspaceProps = {
+  mode?: AgendaMode;
   activities: AgendaActivity[];
   reservations: AgendaReservation[];
   opportunities: OpportunityOption[];
@@ -110,10 +113,11 @@ type AgendaListRow =
 
 const statusOptions = ["Todos", "Pendiente", "Confirmada", "Cancelada", "Finalizada"];
 
-export function AgendaWorkspace({ activities, reservations, opportunities, users, spaces }: AgendaWorkspaceProps) {
+export function AgendaWorkspace({ mode = "event", activities, reservations, opportunities, users, spaces }: AgendaWorkspaceProps) {
+  const isEventMode = mode === "event";
   const firstUpcoming = reservations.find((reservation) => parseISO(reservation.reservationDate) >= new Date());
   const [anchorDate, setAnchorDate] = useState(() => firstUpcoming ? parseISO(firstUpcoming.reservationDate) : new Date());
-  const [view, setView] = useState<ViewMode>("week");
+  const [view, setView] = useState<ViewMode>(() => isEventMode ? "week" : "list");
   const [spaceFilter, setSpaceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("Todos");
 
@@ -130,19 +134,32 @@ export function AgendaWorkspace({ activities, reservations, opportunities, users
     });
   }, [reservations, spaceFilter, statusFilter]);
 
+  const filteredActivities = useMemo(() => {
+    return activities.filter((activity) => statusFilter === "Todos" || activity.status === statusFilter);
+  }, [activities, statusFilter]);
+
   const weekReservations = filteredReservations.filter((reservation) =>
     isWithinInterval(parseISO(reservation.reservationDate), { start: weekStart, end: weekEnd })
   );
+  const weekActivities = filteredActivities.filter((activity) =>
+    isWithinInterval(parseISO(activity.activityDate), { start: weekStart, end: weekEnd })
+  );
   const dayReservations = filteredReservations.filter((reservation) => isSameDay(parseISO(reservation.reservationDate), anchorDate));
-  const dayActivities = activities.filter((activity) => isSameDay(parseISO(activity.activityDate), anchorDate));
+  const dayActivities = filteredActivities.filter((activity) => isSameDay(parseISO(activity.activityDate), anchorDate));
   const upcomingReservations = filteredReservations
     .filter((reservation) => parseISO(reservation.reservationDate) >= new Date())
+    .slice(0, 8);
+  const upcomingActivities = filteredActivities
+    .filter((activity) => activity.status === "Pendiente")
+    .sort((a, b) => parseISO(a.activityDate).getTime() - parseISO(b.activityDate).getTime())
     .slice(0, 8);
 
   const confirmedWeek = weekReservations.filter((reservation) => reservation.status === "Confirmada").length;
   const tentativeWeek = weekReservations.filter((reservation) => reservation.status === "Pendiente").length;
   const committedPeople = dayReservations.reduce((sum, reservation) => sum + reservation.opportunity.lead.peopleCount, 0);
   const occupancy = visibleSpaces.length > 0 ? Math.round((weekReservations.length / (visibleSpaces.length * 7)) * 100) : 0;
+  const pendingWeekActivities = weekActivities.filter((activity) => activity.status === "Pendiente").length;
+  const completedWeekActivities = weekActivities.filter((activity) => activity.status === "Finalizada").length;
 
   return (
     <div className="space-y-6">
@@ -152,26 +169,51 @@ export function AgendaWorkspace({ activities, reservations, opportunities, users
             <div className="mb-4 h-1 w-16 rounded-full bg-primary/70" />
             <div className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
               <Sparkles className="h-4 w-4" />
-              Planeación comercial y operativa
+              {isEventMode ? "Planeacion comercial y operativa" : "Agenda CRM comercial"}
             </div>
             <h2 className="mt-3 max-w-3xl text-2xl font-semibold tracking-normal">
-              Agenda por zonas con reservas, actividades y capacidad comprometida en una sola vista.
+              {isEventMode
+                ? "Agenda por zonas con reservas, actividades y capacidad comprometida en una sola vista."
+                : "Seguimiento de llamadas, reuniones, tareas y proximos contactos sin mezclar reservas operativas."}
             </h2>
             <div className="mt-6 grid gap-3 md:grid-cols-4">
-              <HeroMetric label="Reservas semana" value={String(weekReservations.length)} />
-              <HeroMetric label="Confirmadas" value={String(confirmedWeek)} />
-              <HeroMetric label="Tentativas" value={String(tentativeWeek)} />
-              <HeroMetric label="Ocupación" value={`${occupancy}%`} />
+              {isEventMode ? (
+                <>
+                  <HeroMetric label="Reservas semana" value={String(weekReservations.length)} />
+                  <HeroMetric label="Confirmadas" value={String(confirmedWeek)} />
+                  <HeroMetric label="Tentativas" value={String(tentativeWeek)} />
+                  <HeroMetric label="Ocupacion" value={`${occupancy}%`} />
+                </>
+              ) : (
+                <>
+                  <HeroMetric label="Actividades semana" value={String(weekActivities.length)} />
+                  <HeroMetric label="Pendientes" value={String(pendingWeekActivities)} />
+                  <HeroMetric label="Finalizadas" value={String(completedWeekActivities)} />
+                  <HeroMetric label="Hoy" value={String(dayActivities.length)} />
+                </>
+              )}
             </div>
           </div>
+
           <div className="rounded-lg border bg-slate-50 p-5">
-            <p className="text-sm font-semibold">Brief del día</p>
+            <p className="text-sm font-semibold">Brief del dia</p>
             <p className="mt-1 text-sm text-muted-foreground">{format(anchorDate, "EEEE d 'de' MMMM", { locale: es })}</p>
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <BriefItem icon={<CalendarDays className="h-4 w-4" />} label="Reservas" value={String(dayReservations.length)} />
-              <BriefItem icon={<Users className="h-4 w-4" />} label="Personas" value={String(committedPeople)} />
-              <BriefItem icon={<Rows3 className="h-4 w-4" />} label="Actividades" value={String(dayActivities.length)} />
-              <BriefItem icon={<MapPin className="h-4 w-4" />} label="Zonas" value={String(new Set(dayReservations.map((item) => item.spaceId)).size)} />
+              {isEventMode ? (
+                <>
+                  <BriefItem icon={<CalendarDays className="h-4 w-4" />} label="Reservas" value={String(dayReservations.length)} />
+                  <BriefItem icon={<Users className="h-4 w-4" />} label="Personas" value={String(committedPeople)} />
+                  <BriefItem icon={<Rows3 className="h-4 w-4" />} label="Actividades" value={String(dayActivities.length)} />
+                  <BriefItem icon={<MapPin className="h-4 w-4" />} label="Zonas" value={String(new Set(dayReservations.map((item) => item.spaceId)).size)} />
+                </>
+              ) : (
+                <>
+                  <BriefItem icon={<PhoneCall className="h-4 w-4" />} label="Llamadas" value={String(dayActivities.filter((activity) => activity.type === "Llamada").length)} />
+                  <BriefItem icon={<Users className="h-4 w-4" />} label="Reuniones" value={String(dayActivities.filter((activity) => activity.type === "Reunion").length)} />
+                  <BriefItem icon={<Rows3 className="h-4 w-4" />} label="Tareas" value={String(dayActivities.length)} />
+                  <BriefItem icon={<UserRound className="h-4 w-4" />} label="Responsables" value={String(new Set(dayActivities.map((item) => item.user.id)).size)} />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -193,35 +235,37 @@ export function AgendaWorkspace({ activities, reservations, opportunities, users
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <SegmentedControl value={view} onChange={setView} />
-            <div className="flex h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm text-muted-foreground">
-              <Filter className="h-4 w-4" />
-              <select value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)} className="bg-transparent text-sm outline-none">
-                <option value="all">Todas las zonas</option>
-                {spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
-              </select>
-            </div>
+            <SegmentedControl mode={mode} value={view} onChange={setView} />
+            {isEventMode && (
+              <div className="flex h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <select value={spaceFilter} onChange={(event) => setSpaceFilter(event.target.value)} className="bg-transparent text-sm outline-none">
+                  <option value="all">Todas las zonas</option>
+                  {spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
+                </select>
+              </div>
+            )}
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-md border bg-white px-3 text-sm outline-none">
               {statusOptions.map((status) => <option key={status}>{status}</option>)}
             </select>
-            <AgendaDialogs opportunities={opportunities} users={users} spaces={spaces} anchorDate={anchorDate} />
+            <AgendaDialogs mode={mode} opportunities={opportunities} users={users} spaces={spaces} anchorDate={anchorDate} />
           </div>
         </div>
 
         <AnimatePresence mode="wait">
-          {view === "week" && (
+          {view === "week" && isEventMode && (
             <motion.div key="week" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="overflow-x-auto scrollbar-thin">
               <WeekCalendar weekDays={weekDays} spaces={visibleSpaces} reservations={weekReservations} setAnchorDate={setAnchorDate} />
             </motion.div>
           )}
           {view === "day" && (
             <motion.div key="day" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <DayView date={anchorDate} reservations={dayReservations} activities={dayActivities} spaces={visibleSpaces} />
+              <DayView mode={mode} date={anchorDate} reservations={dayReservations} activities={dayActivities} spaces={visibleSpaces} />
             </motion.div>
           )}
           {view === "list" && (
             <motion.div key="list" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <ListView reservations={filteredReservations} activities={activities} />
+              <ListView reservations={isEventMode ? filteredReservations : []} activities={filteredActivities} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -231,23 +275,33 @@ export function AgendaWorkspace({ activities, reservations, opportunities, users
         <div className="rounded-lg border bg-white/95 p-5 shadow-soft">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold">Actividades del día</h3>
-              <p className="text-sm text-muted-foreground">Seguimiento comercial y tareas operativas</p>
+              <h3 className="font-semibold">Actividades del dia</h3>
+              <p className="text-sm text-muted-foreground">{isEventMode ? "Seguimiento comercial y tareas operativas" : "Llamadas, reuniones y tareas de seguimiento"}</p>
             </div>
             <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{dayActivities.length}</span>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {dayActivities.length === 0 ? <EmptyMessage text="No hay actividades programadas para este día." /> : dayActivities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)}
+            {dayActivities.length === 0 ? <EmptyMessage text="No hay actividades programadas para este dia." /> : dayActivities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)}
           </div>
         </div>
 
-        <aside className="rounded-lg border bg-white/95 p-5 shadow-soft">
-          <h3 className="font-semibold">Próximas reservas</h3>
-          <p className="text-sm text-muted-foreground">Vista rápida para anticipar operación</p>
-          <div className="mt-4 space-y-3">
-            {upcomingReservations.length === 0 ? <EmptyMessage text="No hay próximas reservas con estos filtros." /> : upcomingReservations.map((reservation) => <ReservationSummary key={reservation.id} reservation={reservation} showDate />)}
-          </div>
-        </aside>
+        {isEventMode ? (
+          <aside className="rounded-lg border bg-white/95 p-5 shadow-soft">
+            <h3 className="font-semibold">Proximas reservas</h3>
+            <p className="text-sm text-muted-foreground">Vista rapida para anticipar operacion</p>
+            <div className="mt-4 space-y-3">
+              {upcomingReservations.length === 0 ? <EmptyMessage text="No hay proximas reservas con estos filtros." /> : upcomingReservations.map((reservation) => <ReservationSummary key={reservation.id} reservation={reservation} showDate />)}
+            </div>
+          </aside>
+        ) : (
+          <aside className="rounded-lg border bg-white/95 p-5 shadow-soft">
+            <h3 className="font-semibold">Proximos seguimientos</h3>
+            <p className="text-sm text-muted-foreground">Llamadas y reuniones por ejecutar</p>
+            <div className="mt-4 space-y-3">
+              {upcomingActivities.length === 0 ? <EmptyMessage text="No hay seguimientos pendientes." /> : upcomingActivities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)}
+            </div>
+          </aside>
+        )}
       </section>
     </div>
   );
@@ -295,7 +349,21 @@ function WeekCalendar({ weekDays, spaces, reservations, setAnchorDate }: { weekD
   );
 }
 
-function DayView({ date, reservations, activities, spaces }: { date: Date; reservations: AgendaReservation[]; activities: AgendaActivity[]; spaces: SpaceOption[] }) {
+function DayView({ mode, date, reservations, activities, spaces }: { mode: AgendaMode; date: Date; reservations: AgendaReservation[]; activities: AgendaActivity[]; spaces: SpaceOption[] }) {
+  if (mode === "crm") {
+    return (
+      <div className="p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">{format(date, "EEEE d 'de' MMMM", { locale: es })}</h3>
+          <p className="text-sm text-muted-foreground">Agenda comercial por hora, responsable y oportunidad.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {activities.length === 0 ? <EmptyMessage text="Sin llamadas ni reuniones para esta fecha." /> : activities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-5 p-5 xl:grid-cols-[1fr_340px]">
       <section className="space-y-4">
@@ -316,7 +384,7 @@ function DayView({ date, reservations, activities, spaces }: { date: Date; reser
                   <span className="rounded-full bg-white px-2 py-1 text-xs">{spaceReservations.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {spaceReservations.length === 0 ? <EmptyMessage text="Disponible todo el día." compact /> : spaceReservations.map((reservation) => <ReservationBlock key={reservation.id} booking={reservation} expanded />)}
+                  {spaceReservations.length === 0 ? <EmptyMessage text="Disponible todo el dia." compact /> : spaceReservations.map((reservation) => <ReservationBlock key={reservation.id} booking={reservation} expanded />)}
                 </div>
               </div>
             );
@@ -351,12 +419,12 @@ function ListView({ reservations, activities }: { reservations: AgendaReservatio
             {row.type === "Reserva" ? (
               <div>
                 <p className="font-medium">{row.reservation.opportunity.title}</p>
-                <p className="text-sm text-muted-foreground">{row.reservation.space?.name ?? "Sin zona"} · {row.reservation.startTime} - {row.reservation.endTime}</p>
+                <p className="text-sm text-muted-foreground">{row.reservation.space?.name ?? "Sin zona"} - {row.reservation.startTime} - {row.reservation.endTime}</p>
               </div>
             ) : (
               <div>
                 <p className="font-medium">{row.activity.title}</p>
-                <p className="text-sm text-muted-foreground">{row.activity.opportunity.lead.fullName} · {row.activity.user.name}</p>
+                <p className="text-sm text-muted-foreground">{row.activity.opportunity.lead.fullName} - {row.activity.user.name}</p>
               </div>
             )}
             <div className="text-right"><StatusPill value={listRowStatus(row)} /></div>
@@ -375,57 +443,75 @@ function listRowStatus(row: AgendaListRow) {
   return row.type === "Reserva" ? row.reservation.status : row.activity.status;
 }
 
-function AgendaDialogs({ opportunities, users, spaces, anchorDate }: { opportunities: OpportunityOption[]; users: UserOption[]; spaces: SpaceOption[]; anchorDate: Date }) {
+function AgendaDialogs({ mode, opportunities, users, spaces, anchorDate }: { mode: AgendaMode; opportunities: OpportunityOption[]; users: UserOption[]; spaces: SpaceOption[]; anchorDate: Date }) {
   const dateValue = format(anchorDate, "yyyy-MM-dd");
+  const isEventMode = mode === "event";
+
   return (
     <div className="flex gap-2">
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline"><Plus className="h-4 w-4" /> Actividad</Button>
+          <Button variant={isEventMode ? "outline" : "default"}><Plus className="h-4 w-4" /> Actividad</Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader><DialogTitle>Nueva actividad</DialogTitle></DialogHeader>
           <form action={createActivity} className="grid gap-4 md:grid-cols-2">
-            <SelectField name="opportunityId" label="Oportunidad" options={opportunities.map((o) => [o.id, `${o.title} · ${o.leadName}`])} />
+            <SelectField name="opportunityId" label="Oportunidad" options={opportunities.map((o) => [o.id, `${o.title} - ${o.leadName}`])} />
             <SelectField name="userId" label="Responsable" options={users.map((u) => [u.id, u.name])} />
-            <Field label="Título"><Input name="title" /></Field>
+            <Field label="Titulo"><Input name="title" placeholder={isEventMode ? "Validar montaje" : "Llamada de seguimiento"} /></Field>
             <Field label="Fecha"><Input name="activityDate" type="datetime-local" defaultValue={`${dateValue}T09:00`} /></Field>
-            <Field label="Tipo"><Input name="type" defaultValue="Llamada" /></Field>
+            <Field label="Tipo">
+              <select name="type" defaultValue={isEventMode ? "Tarea" : "Llamada"} className="h-10 w-full rounded-md border bg-white px-3 text-sm">
+                <option>Llamada</option>
+                <option>Reunion</option>
+                <option>Correo</option>
+                <option>Seguimiento</option>
+                <option>Tarea</option>
+                {isEventMode && <option>Operacion</option>}
+              </select>
+            </Field>
             <Field label="Estado"><select name="status" className="h-10 w-full rounded-md border bg-white px-3 text-sm"><option>Pendiente</option><option>Finalizada</option><option>Cancelada</option></select></Field>
-            <Field label="Descripción"><Textarea name="description" /></Field>
-            <div className="md:col-span-2 flex justify-end"><SubmitButton pendingText="Guardando...">Guardar actividad</SubmitButton></div>
+            <Field label="Descripcion"><Textarea name="description" /></Field>
+            <div className="flex justify-end md:col-span-2"><SubmitButton pendingText="Guardando...">Guardar actividad</SubmitButton></div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button><Plus className="h-4 w-4" /> Reserva</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Nueva reserva tentativa</DialogTitle></DialogHeader>
-          <form action={createReservation} className="grid gap-4 md:grid-cols-2">
-            <SelectField name="opportunityId" label="Oportunidad" options={opportunities.map((o) => [o.id, `${o.title} · ${o.leadName}`])} />
-            <SelectField name="spaceId" label="Espacio" options={spaces.map((s) => [s.id, s.name])} />
-            <Field label="Fecha"><Input name="reservationDate" type="date" defaultValue={dateValue} /></Field>
-            <Field label="Inicio"><Input name="startTime" type="time" defaultValue="15:00" /></Field>
-            <Field label="Fin"><Input name="endTime" type="time" defaultValue="23:00" /></Field>
-            <Field label="Estado"><select name="status" className="h-10 w-full rounded-md border bg-white px-3 text-sm"><option>Pendiente</option><option>Confirmada</option><option>Cancelada</option><option>Finalizada</option></select></Field>
-            <Field label="Notas"><Textarea name="notes" /></Field>
-            <div className="md:col-span-2 flex justify-end"><SubmitButton pendingText="Guardando...">Guardar reserva</SubmitButton></div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {isEventMode && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4" /> Reserva</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Nueva reserva tentativa</DialogTitle></DialogHeader>
+            <form action={createReservation} className="grid gap-4 md:grid-cols-2">
+              <SelectField name="opportunityId" label="Oportunidad" options={opportunities.map((o) => [o.id, `${o.title} - ${o.leadName}`])} />
+              <SelectField name="spaceId" label="Espacio" options={spaces.map((s) => [s.id, s.name])} />
+              <Field label="Fecha"><Input name="reservationDate" type="date" defaultValue={dateValue} /></Field>
+              <Field label="Inicio"><Input name="startTime" type="time" defaultValue="15:00" /></Field>
+              <Field label="Fin"><Input name="endTime" type="time" defaultValue="23:00" /></Field>
+              <Field label="Estado"><select name="status" className="h-10 w-full rounded-md border bg-white px-3 text-sm"><option>Pendiente</option><option>Confirmada</option><option>Cancelada</option><option>Finalizada</option></select></Field>
+              <Field label="Notas"><Textarea name="notes" /></Field>
+              <div className="flex justify-end md:col-span-2"><SubmitButton pendingText="Guardando...">Guardar reserva</SubmitButton></div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
 
-function SegmentedControl({ value, onChange }: { value: ViewMode; onChange: (value: ViewMode) => void }) {
-  const options: Array<{ value: ViewMode; label: string; icon: ReactNode }> = [
-    { value: "week", label: "Semana", icon: <CalendarDays className="h-4 w-4" /> },
-    { value: "day", label: "Día", icon: <Rows3 className="h-4 w-4" /> },
-    { value: "list", label: "Lista", icon: <LayoutList className="h-4 w-4" /> }
-  ];
+function SegmentedControl({ mode, value, onChange }: { mode: AgendaMode; value: ViewMode; onChange: (value: ViewMode) => void }) {
+  const options: Array<{ value: ViewMode; label: string; icon: ReactNode }> = mode === "event"
+    ? [
+        { value: "week", label: "Semana", icon: <CalendarDays className="h-4 w-4" /> },
+        { value: "day", label: "Dia", icon: <Rows3 className="h-4 w-4" /> },
+        { value: "list", label: "Lista", icon: <LayoutList className="h-4 w-4" /> }
+      ]
+    : [
+        { value: "day", label: "Dia", icon: <Rows3 className="h-4 w-4" /> },
+        { value: "list", label: "Lista", icon: <LayoutList className="h-4 w-4" /> }
+      ];
 
   return (
     <div className="flex rounded-md border bg-slate-50 p-1">
@@ -477,7 +563,7 @@ function ReservationSummary({ reservation, showDate = false }: { reservation: Ag
         </div>
         <StatusPill value={reservation.status} />
       </div>
-      <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> {reservation.space?.name ?? "Sin espacio"} · {reservation.startTime} - {reservation.endTime}</p>
+      <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> {reservation.space?.name ?? "Sin espacio"} - {reservation.startTime} - {reservation.endTime}</p>
       {showDate && <p className="mt-1 text-xs text-muted-foreground">{format(parseISO(reservation.reservationDate), "EEE d MMM", { locale: es })}</p>}
       {reservation.status === "Pendiente" && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -499,11 +585,12 @@ function ActivityCard({ activity }: { activity: AgendaActivity }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium">{activity.title}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{activity.opportunity.lead.fullName} · {activity.user.name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{activity.opportunity.lead.fullName} - {activity.user.name}</p>
         </div>
         <StatusPill value={activity.status} />
       </div>
       <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground"><Clock className="h-3 w-3" /> {format(parseISO(activity.activityDate), "dd MMM p", { locale: es })}</p>
+      <p className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">{activity.type}</p>
       {activity.status === "Pendiente" && (
         <div className="mt-3 flex flex-wrap gap-2">
           <form action={updateActivityStatus.bind(null, activity.id, "Finalizada")}>
@@ -554,14 +641,11 @@ function StatusPill({ value }: { value: string }) {
 }
 
 function getReservationTone(status: string) {
-  if (status === "Confirmada") {
+  if (status === "Confirmada" || status === "Finalizada") {
     return { block: "border-emerald-200 bg-emerald-50 text-emerald-900", pill: "bg-emerald-100 text-emerald-700" };
   }
   if (status === "Cancelada") {
     return { block: "border-rose-200 bg-rose-50 text-rose-900", pill: "bg-rose-100 text-rose-700" };
-  }
-  if (status === "Finalizada") {
-    return { block: "border-slate-200 bg-slate-50 text-slate-800", pill: "bg-slate-200 text-slate-700" };
   }
   return { block: "border-amber-200 bg-amber-50 text-amber-900", pill: "bg-amber-100 text-amber-700" };
 }
@@ -572,7 +656,7 @@ function spaceLoadLabel(space: SpaceOption, reservations: AgendaReservation[]) {
     .reduce((sum, reservation) => sum + reservation.opportunity.lead.peopleCount, 0);
 
   if (people === 0) {
-    return "Sin ocupación esta semana";
+    return "Sin ocupacion esta semana";
   }
 
   return `${people} personas comprometidas`;
